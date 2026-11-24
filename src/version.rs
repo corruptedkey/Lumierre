@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::Read;
 use std::ptr;
 
+use crate::patch::{find_all_strings, read_string};
+
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBoxW(hWnd: *mut c_void, lpText: *const u16, lpCaption: *const u16, uType: u32)
@@ -108,19 +110,41 @@ pub fn detect_version() -> Result<&'static VersionProfile, String> {
 
     let supported_info = SUPPORTED_VERSIONS
         .iter()
-        .map(|v| format!("  - v{} (SHA256: {})", v.version, v.sha256))
+        .map(|v| format!("  - v{}", v.version))
         .collect::<Vec<_>>()
         .join("\n");
 
+    let mut version = "unknown".to_string();
+
+    for rva in unsafe { find_all_strings("build ") } {
+        if let Some(text) = unsafe { read_string(rva, 64) } {
+            if let Some(rest) = text.strip_prefix("build ") {
+                let raw: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit() || *c == '.')
+                    .collect();
+                let candidate = raw.trim_end_matches('.');
+
+                let is_version =
+                    candidate.contains('.') && candidate.split('.').all(|part| !part.is_empty());
+
+                if is_version {
+                    version = format!("v{}", candidate);
+                    break;
+                }
+            }
+        }
+    }
+
     let error_msg = format!(
         "Unsupported Lumabar version detected!\n\n\
-         Executable:\n  {}\n\n\
-         Current SHA256:\n  {}\n\n\
+         Executable: {}\n\n\
+         Current version: {}\n\n\
          Supported versions:\n{}\n\n\
-         Proxy initialization has been aborted to prevent crashes.",
-        exe_name, current_hash, supported_info
+         Lumierre initialization has been aborted.",
+        exe_name, version, supported_info
     );
 
-    show_error_box("Lumabar Proxy - Unsupported Version", &error_msg);
+    show_error_box("Lumabar", &error_msg);
     Err(error_msg)
 }

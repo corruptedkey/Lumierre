@@ -12,12 +12,12 @@ use std::ptr;
 
 const _: () = {
     assert!(
-        !consts::PRIV_KEY.is_empty(),
-        "PRIV_KEY in src/consts.rs must not be empty! Generate keys with `cargo run -- -keys`"
+        !consts::PRIV_KEY_B64.is_empty(),
+        "PRIV_KEY_B64 in src/consts.rs must not be empty! Generate keys with `cargo run -- -keys`"
     );
     assert!(
-        !consts::PUB_KEY.is_empty(),
-        "PUB_KEY in src/consts.rs must not be empty! Generate keys with `cargo run -- -keys`"
+        !consts::PUB_KEY_B64.is_empty(),
+        "PUB_KEY_B64 in src/consts.rs must not be empty! Generate keys with `cargo run -- -keys`"
     );
 };
 
@@ -41,6 +41,7 @@ unsafe extern "system" {
     fn ExitProcess(uExitCode: u32) -> !;
 }
 
+pub use patch::{find_all_strings, find_string, get_rdata_section, read_string};
 pub use proxy::{PlaySoundW, timeBeginPeriod, timeEndPeriod, timeGetTime};
 
 #[unsafe(no_mangle)]

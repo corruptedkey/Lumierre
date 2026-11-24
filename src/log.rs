@@ -24,8 +24,12 @@ pub fn debug_log(_msg: &str) {}
 pub fn file_log(msg: &str) {
     debug_log(msg);
     if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        let path = format!("{}\\com.lumabar.dock\\logs\\proxy.log", local_app_data);
-        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+        let path = format!("{}\\com.lumabar.dock\\logs\\lumierre.log", local_app_data);
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
             let _ = f.write_all(msg.as_bytes());
         }
     }
