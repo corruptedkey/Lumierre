@@ -66,6 +66,14 @@ pub extern "system" fn DllMain(hinst: *mut c_void, reason: u32, _reserved: *mut 
             file_log("[lumierre] DLL_PROCESS_ATTACH\n");
 
             let args: Vec<String> = std::env::args().collect();
+            let is_taskbar_guard = args
+                .iter()
+                .any(|arg| arg.starts_with("--taskbar-guard"));
+
+            if is_taskbar_guard {
+                file_log("[lumierre] Detected --taskbar-guard child process\n");
+            }
+
             if args
                 .iter()
                 .any(|arg| arg == "-keys" || arg == "--generate-keys")
@@ -100,14 +108,18 @@ pub extern "system" fn DllMain(hinst: *mut c_void, reason: u32, _reserved: *mut 
                 }
             }
 
-            match version::detect_version() {
+            match version::detect_version(!is_taskbar_guard) {
                 Ok(profile) => {
                     file_log(&format!(
                         "[lumierre] Detected Lumabar version: {}\n",
                         profile.version
                     ));
                     if patch::apply_patches(profile) {
-                        server::start_server();
+                        if !is_taskbar_guard {
+                            server::start_server();
+                        } else {
+                            file_log("[lumierre] Taskbar-guard process: skipping server startup\n");
+                        }
                     } else {
                         file_log("[lumierre] Memory patching failed! Server not started.\n");
                     }

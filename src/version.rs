@@ -93,7 +93,7 @@ pub fn compute_current_exe_sha256() -> Result<(String, String), String> {
     Ok((exe_name, hash_hex))
 }
 
-pub fn detect_version() -> Result<&'static VersionProfile, String> {
+pub fn detect_version(show_dialog: bool) -> Result<&'static VersionProfile, String> {
     let (exe_name, current_hash) = compute_current_exe_sha256()?;
 
     if !exe_name.eq_ignore_ascii_case("lumabar.exe") {
@@ -145,6 +145,8 @@ pub fn detect_version() -> Result<&'static VersionProfile, String> {
         exe_name, version, supported_info
     );
 
-    show_error_box("Lumabar", &error_msg);
+    if show_dialog {
+        show_error_box("Lumabar", &error_msg);
+    }
     Err(error_msg)
 }
