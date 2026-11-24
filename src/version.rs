@@ -22,6 +22,12 @@ pub struct VersionProfile {
 
 pub const SUPPORTED_VERSIONS: &[VersionProfile] = &[
     VersionProfile {
+        version: "1.2.30",
+        sha256: "0e79109155125a8640d7dcdb48bd619f7d43a26142c465e31bdd02ae8906eb02",
+        url_rva: 0x13a3a3e,
+        pb_rva: 0x13a364e,
+    },
+    VersionProfile {
         version: "1.2.28",
         sha256: "484ce4e160a42a5883cee2c8f51d384a5922595846178fb2429455b689bc250f",
         url_rva: 0x135a47e,
