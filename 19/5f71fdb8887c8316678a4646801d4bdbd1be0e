@@ -1,0 +1,16 @@
+src/lib.rs
+  h_de426d733321e7 69-76,111,118-122
+src/version.rs
+  h_de426d733321e7 96,148-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "195f71fdb8887c8316678a4646801d4bdbd1be0e",
+  "prompts": {},
+  "humans": {
+    "h_de426d733321e7": {
+      "author": "corruptedkey <rumaevvadim@gmail.com>"
+    }
+  }
+}
