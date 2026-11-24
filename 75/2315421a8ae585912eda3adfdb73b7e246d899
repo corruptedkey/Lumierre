@@ -1,0 +1,14 @@
+src/consts.rs
+  h_de426d733321e7 4-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "752315421a8ae585912eda3adfdb73b7e246d899",
+  "prompts": {},
+  "humans": {
+    "h_de426d733321e7": {
+      "author": "corruptedkey <rumaevvadim@gmail.com>"
+    }
+  }
+}
