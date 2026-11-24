@@ -1,0 +1,24 @@
+Cargo.toml
+  h_de426d733321e7 5
+src/consts.rs
+  h_de426d733321e7 5
+src/lib.rs
+  h_de426d733321e7 15-16,19-20,44
+src/log.rs
+  h_de426d733321e7 27-32
+src/patch.rs
+  h_de426d733321e7 62-172
+src/version.rs
+  h_de426d733321e7 7-8,113,117-138,141-142,144-145,148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "207924bc5d88d4b2d1974d5383f05f3a3d2df4a9",
+  "prompts": {},
+  "humans": {
+    "h_de426d733321e7": {
+      "author": "corruptedkey <rumaevvadim@gmail.com>"
+    }
+  }
+}
