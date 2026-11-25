@@ -20,6 +20,14 @@ pub struct VersionProfile {
     pub pb_rva: usize,
 }
 
+#[derive(Debug, Clone)]
+pub struct ResolvedVersion {
+    pub version: String,
+    pub url_rva: usize,
+    pub pb_rva: usize,
+    pub autoscanned: bool,
+}
+
 pub const SUPPORTED_VERSIONS: &[VersionProfile] = &[
     VersionProfile {
         version: "1.2.30",
@@ -99,29 +107,7 @@ pub fn compute_current_exe_sha256() -> Result<(String, String), String> {
     Ok((exe_name, hash_hex))
 }
 
-pub fn detect_version(show_dialog: bool) -> Result<&'static VersionProfile, String> {
-    let (exe_name, current_hash) = compute_current_exe_sha256()?;
-
-    if !exe_name.eq_ignore_ascii_case("lumabar.exe") {
-        return Err(format!(
-            "Loaded into non-target executable: {exe_name}. Skipping patches."
-        ));
-    }
-
-    for profile in SUPPORTED_VERSIONS {
-        if current_hash.eq_ignore_ascii_case(profile.sha256) {
-            return Ok(profile);
-        }
-    }
-
-    let supported_info = SUPPORTED_VERSIONS
-        .iter()
-        .map(|v| format!("  - v{}", v.version))
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let mut version = "unknown".to_string();
-
+fn detect_build_version() -> String {
     for rva in unsafe { find_all_strings("build ") } {
         if let Some(text) = unsafe { read_string(rva, 64) } {
             if let Some(rest) = text.strip_prefix("build ") {
@@ -135,19 +121,56 @@ pub fn detect_version(show_dialog: bool) -> Result<&'static VersionProfile, Stri
                     candidate.contains('.') && candidate.split('.').all(|part| !part.is_empty());
 
                 if is_version {
-                    version = format!("v{}", candidate);
-                    break;
+                    return format!("v{}", candidate);
                 }
             }
         }
     }
+    "unknown".to_string()
+}
+
+pub fn detect_version(show_dialog: bool) -> Result<ResolvedVersion, String> {
+    let (exe_name, current_hash) = compute_current_exe_sha256()?;
+
+    if !exe_name.eq_ignore_ascii_case("lumabar.exe") {
+        return Err(format!(
+            "Loaded into non-target executable: {exe_name}. Skipping patches."
+        ));
+    }
+
+    for profile in SUPPORTED_VERSIONS {
+        if current_hash.eq_ignore_ascii_case(profile.sha256) {
+            return Ok(ResolvedVersion {
+                version: format!("v{}", profile.version),
+                url_rva: profile.url_rva,
+                pb_rva: profile.pb_rva,
+                autoscanned: false,
+            });
+        }
+    }
+
+    let version = detect_build_version();
+    if let Some((url_rva, pb_rva)) = unsafe { crate::patch::autoscan_offsets() } {
+        return Ok(ResolvedVersion {
+            version,
+            url_rva,
+            pb_rva,
+            autoscanned: true,
+        });
+    }
+
+    let supported_info = SUPPORTED_VERSIONS
+        .iter()
+        .map(|v| format!("  - v{}", v.version))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     let error_msg = format!(
         "Unsupported Lumabar version detected!\n\n\
          Executable: {}\n\n\
          Current version: {}\n\n\
          Supported versions:\n{}\n\n\
-         Lumierre initialization has been aborted.",
+         Autoscan failed and Lumierre initialization has been aborted.",
         exe_name, version, supported_info
     );
 

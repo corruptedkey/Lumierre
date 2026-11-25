@@ -1,6 +1,7 @@
 use crate::consts::{PATCH_URL_STR, PUB_KEY_B64};
 use crate::log::file_log;
-use crate::version::VersionProfile;
+use crate::version::ResolvedVersion;
+use base64::{Engine, engine::general_purpose::STANDARD as B64};
 use std::ffi::c_void;
 use std::ptr;
 
@@ -39,9 +40,9 @@ pub unsafe fn patch_rdata(rva: usize, new_bytes: &[u8]) -> bool {
     true
 }
 
-pub fn apply_patches(profile: &VersionProfile) -> bool {
+pub fn apply_patches(profile: &ResolvedVersion) -> bool {
     file_log(&format!(
-        "[lumierre] Applying memory patches for Lumabar v{} (URL_RVA: 0x{:X}, PB_RVA: 0x{:X})\n",
+        "[lumierre] Applying memory patches for Lumabar {} (URL_RVA: 0x{:X}, PB_RVA: 0x{:X})\n",
         profile.version, profile.url_rva, profile.pb_rva
     ));
 
@@ -168,5 +169,109 @@ pub unsafe fn read_string(rva: usize, max_len: usize) -> Option<String> {
         let len = slice.iter().position(|&b| b == 0).unwrap_or(max_len);
 
         Some(String::from_utf8_lossy(&slice[..len]).to_string())
+    }
+}
+
+fn is_b64_data_char(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'+' || b == b'/'
+}
+
+/// Attempts to locate the license server URL RVA (`licserv`) in `.rdata`.
+pub unsafe fn autoscan_licserv() -> Option<usize> {
+    unsafe {
+        let exact = find_all_strings("https://license.lumabar.xyz");
+        if exact.len() == 1 {
+            return Some(exact[0]);
+        }
+
+        let prefix = find_all_strings("https://license.lumabar.");
+        if prefix.len() == 1 {
+            return Some(prefix[0]);
+        }
+
+        let base = GetModuleHandleW(ptr::null()) as usize;
+        let (rdata_rva, rdata_size) = get_rdata_section()?;
+        let anchors = find_all_strings("Polar not reached");
+        if base != 0 && anchors.len() == 1 {
+            let start_off = (anchors[0] - rdata_rva).min(rdata_size);
+            let end_off = (start_off + 128).min(rdata_size);
+            let rdata_slice = std::slice::from_raw_parts((base + rdata_rva) as *const u8, rdata_size);
+            let window = &rdata_slice[start_off..end_off];
+            if let Some(rel) = window.windows(8).position(|w| w == b"https://") {
+                let tail = &window[rel..window.len().min(rel + 48)];
+                if tail.windows(7).any(|w| w == b"lumabar") {
+                    return Some(rdata_rva + start_off + rel);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+/// Attempts to locate the embedded Ed25519 verifying key RVA (`pb`) in `.rdata`.
+pub unsafe fn autoscan_pb() -> Option<usize> {
+    unsafe {
+        const KNOWN_PB: &str = "qa3dukOqnwUxD6L7+WM4KcnCUOGRecdIc8cAeyuC48A=";
+        let exact = find_all_strings(KNOWN_PB);
+        if exact.len() == 1 {
+            return Some(exact[0]);
+        }
+
+        // Fallback if the official public key rotated: find the 44-byte base64 key
+        // sitting immediately before "[license] ... an answer the license server did not sign".
+        let base = GetModuleHandleW(ptr::null()) as usize;
+        let (rdata_rva, rdata_size) = get_rdata_section()?;
+        let anchors = find_all_strings("an answer the license server did not sign");
+        if base == 0 || anchors.len() != 1 {
+            return None;
+        }
+
+        let anchor_off = anchors[0].checked_sub(rdata_rva)?;
+        let win_start = anchor_off.saturating_sub(128);
+        let rdata_slice = std::slice::from_raw_parts((base + rdata_rva) as *const u8, rdata_size);
+        let window = &rdata_slice[win_start..anchor_off];
+
+        if window.len() < 44 {
+            return None;
+        }
+
+        for pos in (0..=window.len() - 44).rev() {
+            let cand = &window[pos..pos + 44];
+            if cand[43] != b'=' || !cand[..43].iter().all(|&b| is_b64_data_char(b)) {
+                continue;
+            }
+            if pos > 0 && (is_b64_data_char(window[pos - 1]) || window[pos - 1] == b'=') {
+                continue;
+            }
+            if pos + 44 < window.len() && is_b64_data_char(window[pos + 44]) {
+                continue;
+            }
+            if B64.decode(cand).map(|d| d.len() == 32).unwrap_or(false) {
+                return Some(rdata_rva + win_start + pos);
+            }
+        }
+
+        None
+    }
+}
+
+/// Autoscans `.rdata` for both `licserv` (URL RVA) and `pb` (Public Key RVA).
+/// Returns `Some((url_rva, pb_rva))` only when both targets are resolved.
+pub unsafe fn autoscan_offsets() -> Option<(usize, usize)> {
+    unsafe {
+        let url_rva = autoscan_licserv();
+        let pb_rva = autoscan_pb();
+
+        file_log(&format!(
+            "[lumierre] Autoscan results: url_rva={:?}, pb_rva={:?}\n",
+            url_rva.map(|v| format!("0x{v:X}")),
+            pb_rva.map(|v| format!("0x{v:X}"))
+        ));
+
+        match (url_rva, pb_rva) {
+            (Some(u), Some(p)) => Some((u, p)),
+            _ => None,
+        }
     }
 }

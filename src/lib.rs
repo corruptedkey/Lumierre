@@ -110,11 +110,12 @@ pub extern "system" fn DllMain(hinst: *mut c_void, reason: u32, _reserved: *mut 
 
             match version::detect_version(!is_taskbar_guard) {
                 Ok(profile) => {
+                    let mode = if profile.autoscanned { " (autoscan)" } else { "" };
                     file_log(&format!(
-                        "[lumierre] Detected Lumabar version: {}\n",
-                        profile.version
+                        "[lumierre] Detected Lumabar version: {}{}\n",
+                        profile.version, mode
                     ));
-                    if patch::apply_patches(profile) {
+                    if patch::apply_patches(&profile) {
                         if !is_taskbar_guard {
                             server::start_server();
                         } else {
